@@ -1,37 +1,48 @@
 import { IBot, ChatDestination } from 'app';
 
 interface CheckConfig {
-  alert: boolean;
-  success: boolean;
+    alert: boolean;
+    success: boolean;
 }
 
 export default class {
-  urls: string[];
+    failCount: number = 0;
+    maxFailCount: number = 5;
+    urls: string[];
+    urls_state: any = {};
 
-  bot: IBot;
+    bot: IBot;
 
-  checkUrl: (url: string) => Promise<any>;
+    checkUrl: (url: string) => Promise<any>;
 
-  constructor(
-    bot: IBot,
-    urls: string[],
-    checkUrl: (url: string) => Promise<any>
-  ) {
-    this.urls = urls;
-    this.checkUrl = checkUrl;
-    this.bot = bot;
-  }
+    constructor(bot: IBot, urls: string[], checkUrl: (url: string) => Promise<any>) {
+        this.urls = urls;
+        for (const url of urls) {
+            this.urls_state[url] = true;
+        }
 
-  checkAll(
-    detination: ChatDestination,
-    conf: CheckConfig = { alert: true, success: false }
-  ) {
-    return this.urls.map(url =>
-      this.checkUrl(url)
-        .then(() => conf.success && this.bot.sendOk(url, detination))
-        .catch(() => {
-          conf.alert && this.bot.sendAlert(url, detination);
-        })
-    );
-  }
+        this.checkUrl = checkUrl;
+        this.bot = bot;
+    }
+
+    checkAll(detination: ChatDestination, conf: CheckConfig = { alert: true, success: false }) {
+        return this.urls.map((url) =>
+            this.checkUrl(url)
+                .then(() => {
+                    if (conf.success || !this.urls_state[url]) {
+                        this.urls_state[url] = true;
+                        this.bot.sendOk(url, detination);
+                    }
+                })
+                .catch(() => {
+                    this.urls_state[url] = false;
+                    this.failCount++;
+                    if (this.failCount <= this.maxFailCount) {
+                        conf.alert && this.bot.sendAlert(url, detination);
+                    } else {
+                        console.error('max fail count reached');
+                    }
+                })
+        );
+    }
 }
