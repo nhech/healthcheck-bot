@@ -1,24 +1,16 @@
-FROM node:10-alpine
-
+FROM node:16-alpine
+RUN npm install -g pm2
 
 WORKDIR /usr/src/app
 
 COPY package*.json ./
 
-RUN npm ci --only=production
+RUN yarn --production
 
-RUN npm install typescript@^3.5.3
-
-RUN npm install parcel-bundler@^1.12.3
+RUN yarn add typescript
 
 COPY . .
 
-ENV PARCEL_WORKERS 1
+RUN yarn build-ts
 
-RUN npm run build-ts
-
-RUN npm run build-front
-
-EXPOSE 8080
-
-CMD ["npm", "start"]
+CMD ["pm2-runtime", "start", "ecosystem.config.js"]
